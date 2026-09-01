@@ -91,17 +91,32 @@ PREDICT_ADDRESS=0x... npx hardhat run scripts/fund.ts
 
 ## Error Encountered and Solution
 
-During initial development, the `_pickExecutor` function caused a Solidity compile error:
+### 1. `decodeHttpResponse` External Call Context with `try/catch`
+
+During the contract compilation and test suite integration, Solidity threw a compiler error when invoking the response decoder:
 
 ```text
-DeclarationError: Variable already declared.
+TypeError: Try-catch statements are only allowed for external function calls and contract creation calls.
 ```
 
-The issue was declaring `bool found` inline inside a tuple assignment when the variable was
-already part of the tuple. Fixed by declaring `bool found;` on a separate line before the
-tuple assignment `(executor, found) = ...`.
+**Cause:**
+In `PredictMarket.sol`, `_readOracle` was originally trying to call `decodeHttpResponse(response)` directly as an internal helper inside a `try ... catch` block. Solidity strictly requires `try/catch` targets to be external calls (`this.decodeHttpResponse(...)`) so that ABI-decoding reverts can be safely intercepted at the EVM call boundary without rolling back the parent resolution transaction.
 
-After the fix, the contract compiled cleanly and all four local tests pass.
+**Solution:**
+1. Declared `decodeHttpResponse` as `external pure`.
+2. Invoked it via `this.decodeHttpResponse(response)` in `_readOracle`.
+3. Validated that malformed payloads or unfinalized simulation outputs are caught cleanly as `AttemptCode.BadValue` rather than reverting the Scheduler's scheduled callback.
+
+### 2. TypeScript Extensions in Hardhat Scripts
+
+When executing Hardhat helper scripts (`deploy.ts`, `status.ts`), TypeScript reported:
+
+```text
+TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+```
+
+**Solution:**
+Updated `hardhat/tsconfig.json` to enable `"allowImportingTsExtensions": true`, allowing seamless ESM `.ts` imports for shared utilities like `./ritual.ts` across all deployment and query scripts.
 
 ---
 
