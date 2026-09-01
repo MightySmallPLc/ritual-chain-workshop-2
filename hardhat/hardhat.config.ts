@@ -36,8 +36,8 @@ export default defineConfig({
       type: "http",
       chainType: "l1",
       chainId: 1979,
-      url: "https://rpc.ritualfoundation.org",
-      accounts: [configVariable("DEPLOYER_PRIVATE_KEY")],
+      url: process.env.RITUAL_RPC_URL ?? "https://rpc.ritualfoundation.org",
+      accounts: [configVariable("RITUAL_PRIVATE_KEY")],
     },
   },
 });

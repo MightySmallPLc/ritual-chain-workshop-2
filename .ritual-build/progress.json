@@ -1,0 +1,34 @@
+{
+  "intent": "Extend the existing Ritual Predict workshop into a submission-grade fork with original commits, stronger resolution logic, tests, and reproducible deployment artifacts.",
+  "features": [
+    "HTTP oracle resolution",
+    "scheduled operations",
+    "block-time conversion",
+    "RitualWallet fee funding",
+    "contract testing",
+    "deployment configuration"
+  ],
+  "current_phase": 3,
+  "phases": [
+    {"phase": 0, "status": "completed", "artifacts": ["README.md", "AGENTS.md"]},
+    {"phase": 1, "status": "completed", "artifacts": ["ritual projection and ABI review"]},
+    {"phase": 2, "status": "completed", "artifacts": ["hardhat/contracts/RitualPredict.sol"]},
+    {"phase": 3, "status": "completed", "artifacts": ["hardhat/test/RitualPredict.ts", "hardhat/README.md", "hardhat/hardhat.config.ts"]}
+  ],
+  "files_read": [
+    "README.md",
+    "/home/chief/.agents/skills/ritual-dapp-skills/skills/ritual/SKILL.md"
+  ],
+  "next_file": null,
+  "markers": {
+    "chain_connection": false,
+    "wallet_funded": false,
+    "contract_compiled": true,
+    "contract_deployed": false,
+    "precompile_simulated": false,
+    "precompile_settled": false,
+    "frontend_renders": false,
+    "frontend_connects": false,
+    "e2e_complete": false
+  }
+}

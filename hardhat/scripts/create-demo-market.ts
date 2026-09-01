@@ -1,27 +1,19 @@
 /**
- * Create the preset workshop market: betting open ~3 minutes, automatic resolution
- * ~1 minute later.
+ * Create the preset workshop market.
  *
  *   PREDICT_ADDRESS=0x... ORACLE_URL=https://<tunnel>/api/oracle/eth \
  *     npx hardhat run scripts/create-demo-market.ts
- *
- * Optional: QUESTION, JSON_PATH, TARGET, COMPARATOR (gt|gte|lt|lte),
- *           BETTING_SECONDS, RESOLVE_DELAY_SECONDS
  */
 import { COMPARATOR, DEMO_MARKET } from "./market-presets.ts";
 import { connectRitual, explorerTx } from "./ritual.ts";
 
 const address = process.env.PREDICT_ADDRESS;
-if (!address) throw new Error("Set PREDICT_ADDRESS to the deployed RitualPredict address.");
+if (!address) throw new Error("Set PREDICT_ADDRESS to the deployed PredictMarket address.");
 
 const oracleUrl = process.env.ORACLE_URL ?? DEMO_MARKET.oracleUrl;
-if (!oracleUrl.startsWith("https://") && !oracleUrl.startsWith("http://")) {
-  throw new Error("ORACLE_URL must be an http(s) URL reachable from the public internet.");
-}
 if (oracleUrl.includes("localhost") || oracleUrl.includes("127.0.0.1")) {
   throw new Error(
-    "The oracle URL is fetched by a TEE executor in the cloud, so localhost will never " +
-      "resolve. Expose the demo oracle with a tunnel (see README) and pass that URL.",
+    "The oracle URL is fetched by a TEE executor in the cloud, so localhost will never resolve."
   );
 }
 
@@ -42,14 +34,11 @@ const params = {
 } as const;
 
 const { connection, publicClient, viem } = await connectRitual();
-const predict = await viem.getContractAt("RitualPredict", address as `0x${string}`);
+const predict = await viem.getContractAt("PredictMarket", address as `0x${string}`);
 
 const executionBalance = await predict.read.executionBalance();
 if (executionBalance === 0n) {
-  console.warn(
-    "! Execution balance is 0 — the scheduled resolution will be skipped.\n" +
-      "  Run: PREDICT_ADDRESS=... npx hardhat run scripts/fund.ts",
-  );
+  console.warn("! Execution balance is 0 ? the scheduled resolution will be skipped.");
 }
 
 console.log(`Question:   ${params.question}`);
@@ -58,7 +47,17 @@ console.log(`Oracle:     ${params.oracleUrl}  (jq: ${params.jsonPath})`);
 console.log(`Betting:    ${params.bettingSeconds}s, then resolve after ${params.resolveDelaySeconds}s`);
 console.log("");
 
-const hash = await predict.write.createMarket([params]);
+const spec = {
+  question: params.question,
+  oracleUrl: params.oracleUrl,
+  jsonPath: params.jsonPath,
+  target: params.target,
+  op: params.comparator,
+  bettingSeconds: params.bettingSeconds,
+  resolveDelaySeconds: params.resolveDelaySeconds,
+};
+
+const hash = await predict.write.createMarket([spec]);
 const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
 const marketId = await predict.read.marketCount();

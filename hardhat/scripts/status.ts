@@ -1,11 +1,9 @@
 /**
- * Print live status for every market — the fastest way to see whether the Scheduler
- * has woken the contract yet.
+ * Print live status for every market.
  *
  *   PREDICT_ADDRESS=0x... npx hardhat run scripts/status.ts
  */
 import { formatEther } from "viem";
-import { MARKET_STATE, OUTCOME } from "./market-presets.ts";
 import { RITUAL, connectRitual, ritual } from "./ritual.ts";
 
 const SCHEDULER_CALL_STATE = ["SCHEDULED", "EXECUTING", "COMPLETED", "CANCELLED", "EXPIRED"] as const;
@@ -20,11 +18,14 @@ const SCHEDULER_ABI = [
   },
 ] as const;
 
+const MARKET_STATUS = ["OPEN", "RESOLVING", "SETTLED", "REFUNDED", "CANCELLED"];
+const OUTCOME = ["NONE", "YES", "NO"];
+
 const address = process.env.PREDICT_ADDRESS;
-if (!address) throw new Error("Set PREDICT_ADDRESS to the deployed RitualPredict address.");
+if (!address) throw new Error("Set PREDICT_ADDRESS to the deployed PredictMarket address.");
 
 const { connection, publicClient, viem } = await connectRitual();
-const predict = await viem.getContractAt("RitualPredict", address as `0x${string}`);
+const predict = await viem.getContractAt("PredictMarket", address as `0x${string}`);
 
 const [currentBlock, blockTimeMs, executionBalance, count, maxAttempts] = await Promise.all([
   publicClient.getBlockNumber(),
@@ -42,24 +43,24 @@ console.log(`Markets:           ${count}`);
 const secondsUntil = (target: bigint) =>
   target <= currentBlock ? "now" : `${(Number(target - currentBlock) * Number(blockTimeMs)) / 1000}s`;
 
-for (const market of await predict.read.getMarkets()) {
+for (const market of await predict.read.getMarkets([0n, count])) {
   const pool = market.totalYes + market.totalNo;
   const yesPct = pool === 0n ? 0 : Number((market.totalYes * 10000n) / pool) / 100;
 
   console.log("");
   console.log(`#${market.id} ${market.question}`);
-  console.log(`  state        ${MARKET_STATE[market.state]}   outcome ${OUTCOME[market.outcome]}`);
-  console.log(`  rule         observed ${["＞", "≥", "＜", "≤"][market.comparator]} ${market.target}`);
+  console.log(`  state        ${MARKET_STATUS[market.status]}   outcome ${OUTCOME[market.outcome]}`);
+  console.log(`  rule         observed ${["?", "?", "?", "?"][market.op]} ${market.target}`);
   console.log(`  oracle       ${market.oracleUrl}  (jq ${market.jsonPath})`);
   console.log(
-    `  pool         ${formatEther(pool)} RITUAL — YES ${yesPct.toFixed(1)}% / NO ${(100 - yesPct).toFixed(1)}%`,
+    `  pool         ${formatEther(pool)} RITUAL ? YES ${yesPct.toFixed(1)}% / NO ${(100 - yesPct).toFixed(1)}%`,
   );
   console.log(`  closes       block ${market.closeBlock} (${secondsUntil(market.closeBlock)})`);
   console.log(`  resolves     block ${market.resolveBlock} (${secondsUntil(market.resolveBlock)})`);
   console.log(`  attempts     ${market.attempts}/${maxAttempts}`);
 
   if (market.observedValue !== 0n) console.log(`  observed     ${market.observedValue}`);
-  if (market.invalidReason !== "") console.log(`  invalid      ${market.invalidReason}`);
+  if (market.lastError !== "") console.log(`  last error   ${market.lastError}`);
 
   if (market.scheduleId !== 0n) {
     const state = await publicClient.readContract({
@@ -68,7 +69,7 @@ for (const market of await predict.read.getMarkets()) {
       functionName: "getCallState",
       args: [market.scheduleId],
     });
-    console.log(`  schedule     id ${market.scheduleId} — ${SCHEDULER_CALL_STATE[state] ?? state}`);
+    console.log(`  schedule     id ${market.scheduleId} ? ${SCHEDULER_CALL_STATE[state] ?? state}`);
   }
 }
 
